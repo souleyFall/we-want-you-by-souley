@@ -1,0 +1,406 @@
+/*
+ * Système de design — « registre municipal ».
+ *
+ * Parti pris : l'interface se lit comme un bordereau administratif, pas comme
+ * une application grand public. Lignes pleine largeur séparées par des filets
+ * plutôt que des cartes flottantes, angles droits, aucune ombre portée.
+ *
+ * Trois règles qui expliquent tous les choix ci-dessous :
+ *   1. Les neutres sont biaisés vert-gris, jamais des gris purs.
+ *   2. L'accent (encre pin) signifie, il ne décore pas.
+ *   3. Le laiton est réservé à une seule information de toute l'interface :
+ *      le montant de la meilleure enchère.
+ *
+ * Tout passe par des variables, donc le thème sombre ne redéfinit que des
+ * jetons — aucun composant n'est restylé à l'intérieur d'une media query.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* --- Fonds et encres ------------------------------------------------- */
+  --papier: #f3f5f1;
+  --papier-releve: #fafbf8;
+  --papier-creux: #e9ece5;
+  --encre: #151d1a;
+  --encre-douce: #5b6560;
+  --encre-tenue: #838d87;
+  --trait: #d3d8d0;
+  --trait-appuye: #aeb6ac;
+
+  /* --- Accent unique ---------------------------------------------------- */
+  --accent: #0f4c3f;
+  --accent-vif: #14654f;
+  --accent-voile: #e0eae5;
+
+  /* --- Laiton : montant de la meilleure enchère, et rien d'autre --------- */
+  --laiton: #8a5f0f;
+
+  /* --- Sémantique de statut, volontairement distincte de l'accent -------- */
+  --ouvert-texte: #0f4c3f;
+  --ouvert-fond: #dfeae4;
+  --clos-texte: #6a6255;
+  --clos-fond: #eae7df;
+  --alerte-texte: #8d2718;
+  --alerte-fond: #f7e7e3;
+
+  --focus: #14654f;
+
+  /* --- Typographie ------------------------------------------------------ */
+  /* Aucun webfont : pas de CDN à charger, pas de repli silencieux. */
+  --police-titre: "Palatino Linotype", "Book Antiqua", Palatino, "Iowan Old Style",
+    "Hoefler Text", Georgia, serif;
+  --police-texte: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  /* Toute donnée chiffrée passe en monospace : les colonnes s'alignent. */
+  --police-donnees: "Cascadia Mono", "SF Mono", SFMono-Regular, Consolas,
+    "Liberation Mono", "Roboto Mono", ui-monospace, monospace;
+
+  --txt-xs: 0.6875rem;
+  --txt-sm: 0.8125rem;
+  --txt-md: 0.9375rem;
+  --txt-lg: 1.0625rem;
+  --txt-xl: 1.3125rem;
+  --txt-2xl: 1.75rem;
+  --txt-3xl: 2.375rem;
+
+  /* --- Espacements ------------------------------------------------------ */
+  --e1: 0.25rem;
+  --e2: 0.5rem;
+  --e3: 0.75rem;
+  --e4: 1rem;
+  --e5: 1.5rem;
+  --e6: 2rem;
+  --e7: 3rem;
+  --e8: 4.5rem;
+
+  --largeur-page: 68rem;
+  --rayon: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papier: #121614;
+    --papier-releve: #191e1b;
+    --papier-creux: #1c221f;
+    --encre: #e7ebe4;
+    --encre-douce: #9aa49d;
+    --encre-tenue: #6f7973;
+    --trait: #2b322e;
+    --trait-appuye: #3e463f;
+
+    --accent: #74c3a8;
+    --accent-vif: #8fd6bd;
+    --accent-voile: #17261f;
+
+    --laiton: #d3a44f;
+
+    --ouvert-texte: #8fd6bd;
+    --ouvert-fond: #16261f;
+    --clos-texte: #b6ab97;
+    --clos-fond: #26231c;
+    --alerte-texte: #f0a294;
+    --alerte-fond: #2d1a17;
+
+    --focus: #8fd6bd;
+  }
+}
+
+/* Le choix explicite du visiteur l'emporte sur la préférence système,
+   dans les deux sens. */
+:root[data-theme="dark"] {
+  --papier: #121614;
+  --papier-releve: #191e1b;
+  --papier-creux: #1c221f;
+  --encre: #e7ebe4;
+  --encre-douce: #9aa49d;
+  --encre-tenue: #6f7973;
+  --trait: #2b322e;
+  --trait-appuye: #3e463f;
+  --accent: #74c3a8;
+  --accent-vif: #8fd6bd;
+  --accent-voile: #17261f;
+  --laiton: #d3a44f;
+  --ouvert-texte: #8fd6bd;
+  --ouvert-fond: #16261f;
+  --clos-texte: #b6ab97;
+  --clos-fond: #26231c;
+  --alerte-texte: #f0a294;
+  --alerte-fond: #2d1a17;
+  --focus: #8fd6bd;
+}
+
+:root[data-theme="light"] {
+  --papier: #f3f5f1;
+  --papier-releve: #fafbf8;
+  --papier-creux: #e9ece5;
+  --encre: #151d1a;
+  --encre-douce: #5b6560;
+  --encre-tenue: #838d87;
+  --trait: #d3d8d0;
+  --trait-appuye: #aeb6ac;
+  --accent: #0f4c3f;
+  --accent-vif: #14654f;
+  --accent-voile: #e0eae5;
+  --laiton: #8a5f0f;
+  --ouvert-texte: #0f4c3f;
+  --ouvert-fond: #dfeae4;
+  --clos-texte: #6a6255;
+  --clos-fond: #eae7df;
+  --alerte-texte: #8d2718;
+  --alerte-fond: #f7e7e3;
+  --focus: #14654f;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Remise à zéro                                                              */
+/* -------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body,
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--papier);
+  color: var(--encre);
+  font-family: var(--police-texte);
+  font-size: var(--txt-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Primitives partagées                                                       */
+/* -------------------------------------------------------------------------- */
+
+.conteneur {
+  width: 100%;
+  max-width: var(--largeur-page);
+  margin-inline: auto;
+  padding-inline: var(--e5);
+}
+
+/* Surtitre administratif : petites capitales espacées, en monospace. */
+.surtitre {
+  font-family: var(--police-donnees);
+  font-size: var(--txt-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--encre-tenue);
+}
+
+/* Toute donnée chiffrée : chiffres de largeur fixe pour aligner les colonnes. */
+.donnee {
+  font-family: var(--police-donnees);
+  font-variant-numeric: tabular-nums;
+}
+
+.titre-lot {
+  font-family: var(--police-titre);
+  font-weight: 400;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+/* Le laiton n'apparaît que sur ce montant, nulle part ailleurs. */
+.montant-fort {
+  font-family: var(--police-donnees);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--laiton);
+}
+
+.pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: 0.15rem var(--e2);
+  border-radius: var(--rayon);
+  font-family: var(--police-donnees);
+  font-size: var(--txt-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pastille::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pastille--ouvert {
+  background: var(--ouvert-fond);
+  color: var(--ouvert-texte);
+}
+
+.pastille--clos {
+  background: var(--clos-fond);
+  color: var(--clos-texte);
+}
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e2);
+  padding: var(--e3) var(--e5);
+  border: 1px solid var(--accent);
+  border-radius: var(--rayon);
+  background: var(--accent);
+  color: var(--papier-releve);
+  font-family: var(--police-donnees);
+  font-size: var(--txt-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.bouton:hover:not(:disabled) {
+  background: var(--accent-vif);
+  border-color: var(--accent-vif);
+}
+
+.bouton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Le thème sombre inverse le contraste du bouton plein. */
+:root[data-theme="dark"] .bouton,
+:root[data-theme="dark"] .bouton:hover:not(:disabled) {
+  color: #10160f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .bouton,
+  :root:not([data-theme="light"]) .bouton:hover:not(:disabled) {
+    color: #10160f;
+  }
+}
+
+.bouton--discret {
+  background: transparent;
+  border-color: var(--trait-appuye);
+  color: var(--encre-douce);
+}
+
+.bouton--discret:hover:not(:disabled) {
+  background: var(--papier-creux);
+  border-color: var(--encre-tenue);
+  color: var(--encre);
+}
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+.champ > label {
+  font-family: var(--police-donnees);
+  font-size: var(--txt-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--encre-douce);
+}
+
+.champ > input {
+  padding: var(--e3);
+  border: 1px solid var(--trait-appuye);
+  border-radius: var(--rayon);
+  background: var(--papier-releve);
+  font-family: var(--police-donnees);
+  font-variant-numeric: tabular-nums;
+}
+
+.champ > input:hover {
+  border-color: var(--encre-tenue);
+}
+
+.champ > input[aria-invalid="true"] {
+  border-color: var(--alerte-texte);
+}
+
+.aide {
+  font-size: var(--txt-sm);
+  color: var(--encre-douce);
+}
+
+/* Message d'erreur renvoyé par l'API. */
+.alerte {
+  padding: var(--e3) var(--e4);
+  border-left: 3px solid var(--alerte-texte);
+  background: var(--alerte-fond);
+  color: var(--alerte-texte);
+  font-size: var(--txt-sm);
+}
+
+.alerte > p {
+  margin: 0;
+}
+
+/* Accessibilité : visible uniquement pour les lecteurs d'écran. */
+.hors-ecran {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
