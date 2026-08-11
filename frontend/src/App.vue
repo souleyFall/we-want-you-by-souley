@@ -1,10 +1,7 @@
 <script setup lang="ts">
 /*
- * Coquille de l'application : en-tête, zone de contenu, pied de page.
- *
- * Le contenu sera remplacé par le routeur à l'étape suivante ; cette version
- * sert à vérifier que le socle Vite + Vue + le système de design tiennent
- * debout avant qu'on y branche des données.
+ * Coquille de l'application : en-tête, zone de contenu confiée au routeur,
+ * pied de page. Aucun état, aucun appel réseau — chaque page gère le sien.
  */
 </script>
 
@@ -13,20 +10,17 @@
 
   <header class="entete">
     <div class="conteneur entete__interieur">
-      <div>
-        <p class="surtitre">Service des domaines</p>
-        <p class="entete__marque">Enchères publiques</p>
-      </div>
+      <RouterLink class="entete__identite" to="/">
+        <span class="surtitre">Service des domaines</span>
+        <span class="entete__marque">Enchères publiques</span>
+      </RouterLink>
 
-      <p class="entete__mention donnee">
-        Cession de matériel réformé
-      </p>
+      <p class="entete__mention donnee">Cession de matériel réformé</p>
     </div>
   </header>
 
   <main id="contenu" class="conteneur zone">
-    <p class="surtitre">Registre des lots</p>
-    <p class="aide">Socle en place. Le registre est branché à l'étape suivante.</p>
+    <RouterView />
   </main>
 
   <footer class="pied">
@@ -64,10 +58,21 @@
   padding-block: var(--e5) var(--e4);
 }
 
+.entete__identite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  text-decoration: none;
+}
+
 .entete__marque {
   font-family: var(--police-titre);
   font-size: var(--txt-2xl);
   line-height: 1.1;
+}
+
+.entete__identite:hover .entete__marque {
+  color: var(--accent);
 }
 
 .entete__mention {
@@ -79,9 +84,6 @@
 
 .zone {
   padding-block: var(--e7) var(--e8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--e3);
 }
 
 .pied {
