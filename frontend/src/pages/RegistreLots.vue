@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import { api, ErreurApi } from "../api/client";
-import type { AnnonceResume } from "../types/api";
+import type { AnnonceResume, StatutAnnonce } from "../types/api";
 import {
   formaterDateHeure,
   formaterMontant,
@@ -11,7 +11,7 @@ import {
 } from "../utils/format";
 
 /*
- * Page registre : la liste des lots.
+ * Page registre : la liste des lots, filtrable et triable.
  *
  * L'état de chargement est géré avec trois `ref` plutôt qu'une bibliothèque
  * dédiée. Sur deux écrans, l'abstraction coûterait plus qu'elle ne rapporte,
@@ -22,9 +22,64 @@ const annonces = ref<AnnonceResume[]>([]);
 const chargement = ref(true);
 const erreur = ref<ErreurApi | null>(null);
 
+/* --- Filtre et tri ------------------------------------------------------- */
+
+type FiltreStatut = "tous" | StatutAnnonce;
+type CritereTri = "cloture" | "montant-desc" | "montant-asc" | "titre";
+
+const filtre = ref<FiltreStatut>("tous");
+const tri = ref<CritereTri>("cloture");
+
+const TRIS: { valeur: CritereTri; libelle: string }[] = [
+  { valeur: "cloture", libelle: "Clôture la plus proche" },
+  { valeur: "montant-desc", libelle: "Montant décroissant" },
+  { valeur: "montant-asc", libelle: "Montant croissant" },
+  { valeur: "titre", libelle: "Désignation (A → Z)" },
+];
+
 const nombreOuverts = computed(
   () => annonces.value.filter((annonce) => annonce.statut === "en_cours").length,
 );
+
+const filtres = computed(() => [
+  { valeur: "tous" as const, libelle: "Tous", compte: annonces.value.length },
+  { valeur: "en_cours" as const, libelle: "En cours", compte: nombreOuverts.value },
+  {
+    valeur: "terminee" as const,
+    libelle: "Terminées",
+    compte: annonces.value.length - nombreOuverts.value,
+  },
+]);
+
+/**
+ * Liste effectivement affichée.
+ *
+ * Le tri travaille sur une copie : `sort` modifie sur place et réordonnerait
+ * sinon la source à chaque changement de critère.
+ */
+const lotsAffiches = computed<AnnonceResume[]>(() => {
+  const retenus = annonces.value.filter(
+    (annonce) => filtre.value === "tous" || annonce.statut === filtre.value,
+  );
+
+  return [...retenus].sort((a, b) => {
+    switch (tri.value) {
+      case "montant-desc":
+        return b.meilleureEnchere - a.meilleureEnchere;
+      case "montant-asc":
+        return a.meilleureEnchere - b.meilleureEnchere;
+      case "titre":
+        // `localeCompare` gère les accents : « école » se classe bien après « eau ».
+        return a.titre.localeCompare(b.titre, "fr");
+      case "cloture":
+      default:
+        // Les ventes closes passent en fin de liste : leur date de fin est
+        // dans le passé, un tri chronologique brut les remonterait en tête.
+        if (a.statut !== b.statut) return a.statut === "en_cours" ? -1 : 1;
+        return Date.parse(a.dateFin) - Date.parse(b.dateFin);
+    }
+  });
+});
 
 async function charger(): Promise<void> {
   chargement.value = true;
@@ -67,42 +122,75 @@ onMounted(charger);
       </button>
     </div>
 
-    <ol v-else class="lots">
-      <li v-for="annonce in annonces" :key="annonce.id">
-        <RouterLink class="lot" :to="`/lots/${annonce.id}`">
-          <span class="lot__reference donnee">
-            <span class="hors-ecran">Référence du lot </span>{{ referenceCourte(annonce.id) }}
-          </span>
+    <template v-else>
+      <div class="barre">
+        <div class="barre__groupe" role="group" aria-label="Filtrer par statut">
+          <span class="surtitre">Afficher</span>
+          <button
+            v-for="option in filtres"
+            :key="option.valeur"
+            type="button"
+            class="onglet donnee"
+            :class="{ 'onglet--actif': filtre === option.valeur }"
+            :aria-pressed="filtre === option.valeur"
+            @click="filtre = option.valeur"
+          >
+            {{ option.libelle }}
+            <span class="onglet__compte">{{ option.compte }}</span>
+          </button>
+        </div>
 
-          <span class="lot__corps">
-            <span class="lot__titre titre-lot">{{ annonce.titre }}</span>
-            <span class="lot__description">{{ annonce.description }}</span>
-            <span class="lot__meta donnee">
-              {{ libelleEncheres(annonce.nombreEncheres) }} · pas de
-              {{ formaterMontant(annonce.pasEnchere) }}
-            </span>
-          </span>
+        <div class="barre__groupe">
+          <label class="surtitre" for="tri">Trier par</label>
+          <select id="tri" v-model="tri" class="selecteur donnee">
+            <option v-for="option in TRIS" :key="option.valeur" :value="option.valeur">
+              {{ option.libelle }}
+            </option>
+          </select>
+        </div>
+      </div>
 
-          <span class="lot__chiffres">
-            <span class="surtitre">
-              {{ annonce.nombreEncheres > 0 ? "Meilleure enchère" : "Prix de départ" }}
+      <p v-if="lotsAffiches.length === 0" class="aide">
+        Aucun lot ne correspond à ce filtre.
+      </p>
+
+      <ol v-else class="lots">
+        <li v-for="annonce in lotsAffiches" :key="annonce.id">
+          <RouterLink class="lot" :to="`/lots/${annonce.id}`">
+            <span class="lot__reference donnee">
+              <span class="hors-ecran">Référence du lot </span>{{ referenceCourte(annonce.id) }}
             </span>
-            <span class="montant-fort lot__montant">
-              {{ formaterMontant(annonce.meilleureEnchere) }}
+
+            <span class="lot__corps">
+              <span class="lot__titre titre-lot">{{ annonce.titre }}</span>
+              <span class="lot__description">{{ annonce.description }}</span>
+              <span class="lot__meta donnee">
+                {{ libelleEncheres(annonce.nombreEncheres) }} · pas de
+                {{ formaterMontant(annonce.pasEnchere) }}
+              </span>
             </span>
-            <span
-              class="pastille"
-              :class="annonce.statut === 'en_cours' ? 'pastille--ouvert' : 'pastille--clos'"
-            >
-              {{ annonce.statut === "en_cours" ? "En cours" : "Terminée" }}
+
+            <span class="lot__chiffres">
+              <span class="surtitre">
+                {{ annonce.nombreEncheres > 0 ? "Meilleure enchère" : "Prix de départ" }}
+              </span>
+              <span class="montant-fort lot__montant">
+                {{ formaterMontant(annonce.meilleureEnchere) }}
+              </span>
+              <span
+                class="pastille"
+                :class="annonce.statut === 'en_cours' ? 'pastille--ouvert' : 'pastille--clos'"
+              >
+                {{ annonce.statut === "en_cours" ? "En cours" : "Terminée" }}
+              </span>
+              <span class="lot__echeance donnee">
+                Clôture le {{ formaterDateHeure(annonce.dateFin) }}
+              </span>
             </span>
-            <span class="lot__echeance donnee">
-              Clôture le {{ formaterDateHeure(annonce.dateFin) }}
-            </span>
-          </span>
-        </RouterLink>
-      </li>
-    </ol>
+          </RouterLink>
+        </li>
+      </ol>
+    </template>
   </section>
 </template>
 
@@ -133,6 +221,60 @@ onMounted(charger);
   align-items: center;
   justify-content: space-between;
   gap: var(--e4);
+}
+
+/* Bandeau de commandes : la même logique de filets que le registre. */
+.barre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e4);
+  padding-block: var(--e3);
+  border-block-start: 1px solid var(--trait-appuye);
+}
+
+.barre__groupe {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+}
+
+.onglet {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--e2);
+  padding: var(--e1) var(--e2);
+  border: none;
+  border-block-end: 2px solid transparent;
+  background: none;
+  font-size: var(--txt-sm);
+  color: var(--encre-douce);
+  cursor: pointer;
+}
+
+.onglet:hover {
+  color: var(--encre);
+}
+
+.onglet--actif {
+  border-block-end-color: var(--accent);
+  color: var(--encre);
+}
+
+.onglet__compte {
+  font-size: var(--txt-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--encre-tenue);
+}
+
+.selecteur {
+  padding: var(--e1) var(--e2);
+  border: 1px solid var(--trait-appuye);
+  border-radius: var(--rayon);
+  background: var(--papier-releve);
+  font-size: var(--txt-sm);
+  cursor: pointer;
 }
 
 /* Le registre : des lignes séparées par des filets, pas des cartes. */
@@ -215,6 +357,11 @@ onMounted(charger);
 }
 
 @media (max-width: 44rem) {
+  .barre {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .lot {
     grid-template-columns: 1fr;
     gap: var(--e3);
