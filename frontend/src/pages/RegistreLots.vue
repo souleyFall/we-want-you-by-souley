@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 
 import { api, ErreurApi } from "../api/client";
 import EcheanceLot from "../components/EcheanceLot.vue";
+import { useSondage } from "../composables/sondage";
 import type { AnnonceResume, StatutAnnonce } from "../types/api";
 import { formaterMontant, libelleEncheres, referenceCourte } from "../utils/format";
 
@@ -95,6 +96,24 @@ async function charger(): Promise<void> {
     chargement.value = false;
   }
 }
+
+/*
+ * Rafraîchissement d'arrière-plan, plus espacé que sur la page détail : on
+ * consulte le registre pour choisir un lot, pas pour suivre une enchère à la
+ * seconde. Comme `lotsAffiches` est un `computed`, le filtre et le tri en cours
+ * s'appliquent tout seuls à la liste rafraîchie.
+ */
+const INTERVALLE_SONDAGE = 20_000;
+
+async function rafraichirEnSilence(): Promise<void> {
+  try {
+    annonces.value = await api.listerAnnonces();
+  } catch {
+    /* silencieux : un rafraîchissement raté ne doit pas effacer le registre */
+  }
+}
+
+useSondage(rafraichirEnSilence, INTERVALLE_SONDAGE);
 
 onMounted(charger);
 </script>
