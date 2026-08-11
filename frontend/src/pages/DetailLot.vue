@@ -2,8 +2,10 @@
 import { onMounted, ref } from "vue";
 
 import { api, ErreurApi } from "../api/client";
+import EcheanceLot from "../components/EcheanceLot.vue";
 import FormulaireEnchere from "../components/FormulaireEnchere.vue";
 import HistoriqueEncheres from "../components/HistoriqueEncheres.vue";
+import { useSondage } from "../composables/sondage";
 import type { AnnonceDetail, ReponseEnchere } from "../types/api";
 import {
   formaterDateHeure,
@@ -22,9 +24,13 @@ import {
 
 const props = defineProps<{ id: string }>();
 
+/** Assez court pour rester utile, assez long pour ne pas marteler l'API. */
+const INTERVALLE_SONDAGE = 15_000;
+
 const annonce = ref<AnnonceDetail | null>(null);
 const chargement = ref(true);
 const erreur = ref<ErreurApi | null>(null);
+const derniereActualisation = ref<Date | null>(null);
 
 async function charger(): Promise<void> {
   chargement.value = true;
@@ -32,6 +38,7 @@ async function charger(): Promise<void> {
 
   try {
     annonce.value = await api.consulterAnnonce(props.id);
+    derniereActualisation.value = new Date();
   } catch (probleme) {
     erreur.value =
       probleme instanceof ErreurApi
@@ -52,7 +59,33 @@ async function charger(): Promise<void> {
  */
 function surEncherePlacee(reponse: ReponseEnchere): void {
   annonce.value = reponse.annonce;
+  derniereActualisation.value = new Date();
 }
+
+/**
+ * Rafraîchissement d'arrière-plan : il ne touche ni à `chargement` ni à
+ * `erreur`.
+ *
+ * Un sondage qui échoue — coupure réseau passagère, API redémarrée — ne doit
+ * ni vider l'écran ni afficher une erreur que l'utilisateur n'a pas provoquée.
+ * Il se contente de ne rien mettre à jour et retentera au tic suivant.
+ */
+async function rafraichirEnSilence(): Promise<void> {
+  // Plus rien ne bouge sur une vente close : inutile de continuer à interroger.
+  if (annonce.value?.statut === "terminee") {
+    arreterSondage();
+    return;
+  }
+
+  try {
+    annonce.value = await api.consulterAnnonce(props.id);
+    derniereActualisation.value = new Date();
+  } catch {
+    /* silencieux, par conception */
+  }
+}
+
+const { arreter: arreterSondage } = useSondage(rafraichirEnSilence, INTERVALLE_SONDAGE);
 
 onMounted(charger);
 </script>
@@ -116,12 +149,17 @@ onMounted(charger);
           <p class="montant-fort chiffre-cle__valeur">
             {{ formaterMontant(annonce.meilleureEnchere) }}
           </p>
+          <EcheanceLot :date-fin="annonce.dateFin" />
           <p v-if="annonce.statut === 'en_cours'" class="aide petit">
             Prochaine offre à partir de {{ formaterMontant(annonce.montantMinimum) }}
           </p>
         </section>
 
         <FormulaireEnchere :annonce="annonce" @enchere-placee="surEncherePlacee" />
+
+        <p v-if="derniereActualisation" class="actualisation donnee">
+          Actualisé à {{ derniereActualisation.toLocaleTimeString("fr-FR") }}
+        </p>
       </aside>
     </div>
   </article>
@@ -224,6 +262,12 @@ onMounted(charger);
 
 .petit {
   font-size: var(--txt-xs);
+}
+
+.actualisation {
+  font-size: var(--txt-xs);
+  color: var(--encre-tenue);
+  text-align: end;
 }
 
 @media (max-width: 56rem) {

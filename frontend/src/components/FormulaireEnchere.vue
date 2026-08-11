@@ -24,12 +24,34 @@ const envoiEnCours = ref(false);
 const erreur = ref<ErreurApi | null>(null);
 const confirmation = ref<string | null>(null);
 
-// Après une enchère réussie, le montant minimum a changé : on repositionne la
-// saisie sur la nouvelle borne plutôt que de laisser une valeur périmée.
+/** Vrai dès que l'utilisateur a modifié le montant proposé par défaut. */
+const saisieTouchee = ref(false);
+
+/** Nouveau minimum apparu pendant que l'utilisateur saisissait son montant. */
+const surenchereSurvenue = ref<number | null>(null);
+
+/*
+ * Le rafraîchissement automatique fait bouger `montantMinimum` sous les pieds
+ * de l'utilisateur. Deux cas, et surtout pas un seul :
+ *
+ * — le champ est encore à sa valeur proposée : on le repositionne en silence ;
+ * — l'utilisateur a saisi un montant : on n'y touche pas, on l'avertit.
+ *
+ * Écraser une saisie en cours parce qu'un inconnu vient d'enchérir serait le
+ * genre de bug qu'on ne reproduit jamais en démonstration et que les
+ * utilisateurs subissent tous les jours.
+ */
 watch(
   () => props.annonce.montantMinimum,
-  (nouveauMinimum) => {
-    montant.value = String(nouveauMinimum);
+  (nouveauMinimum, ancienMinimum) => {
+    if (!saisieTouchee.value) {
+      montant.value = String(nouveauMinimum);
+      return;
+    }
+
+    if (nouveauMinimum > ancienMinimum) {
+      surenchereSurvenue.value = nouveauMinimum;
+    }
   },
 );
 
@@ -41,6 +63,7 @@ function erreurDuChamp(nom: "pseudo" | "montant"): string | undefined {
 function utiliserMontantMinimum(): void {
   const minimum = erreur.value?.corps.montantMinimum ?? props.annonce.montantMinimum;
   montant.value = String(minimum);
+  surenchereSurvenue.value = null;
 }
 
 async function soumettre(): Promise<void> {
@@ -57,6 +80,12 @@ async function soumettre(): Promise<void> {
     });
 
     confirmation.value = `Enchère de ${formaterMontant(reponse.enchere.montant)} enregistrée.`;
+
+    // Le champ redevient « non touché » : la mise à jour de l'annonce qui suit
+    // repositionnera donc le montant sur le nouveau minimum.
+    saisieTouchee.value = false;
+    surenchereSurvenue.value = null;
+
     emit("enchere-placee", reponse);
   } catch (probleme) {
     erreur.value =
@@ -110,6 +139,7 @@ async function soumettre(): Promise<void> {
           :step="annonce.pasEnchere"
           :aria-invalid="Boolean(erreurDuChamp('montant'))"
           :aria-describedby="erreurDuChamp('montant') ? 'erreur-montant' : 'aide-montant'"
+          @input="saisieTouchee = true"
         />
         <p v-if="erreurDuChamp('montant')" id="erreur-montant" class="erreur-champ">
           {{ erreurDuChamp("montant") }}
@@ -119,6 +149,15 @@ async function soumettre(): Promise<void> {
           {{ formaterMontant(annonce.pasEnchere) }}.
         </p>
       </div>
+
+      <!-- Signalé, jamais imposé : c'est l'utilisateur qui décide de suivre. -->
+      <p v-if="surenchereSurvenue" class="surenchere" role="status">
+        Quelqu'un vient d'enchérir pendant votre saisie. Le minimum est passé à
+        {{ formaterMontant(surenchereSurvenue) }}.
+        <button type="button" class="lien-action donnee" @click="utiliserMontantMinimum">
+          Reprendre ce montant
+        </button>
+      </p>
 
       <button type="submit" class="bouton" :disabled="envoiEnCours">
         {{ envoiEnCours ? "Envoi…" : "Enchérir" }}
@@ -181,6 +220,14 @@ async function soumettre(): Promise<void> {
   text-underline-offset: 3px;
   color: inherit;
   cursor: pointer;
+}
+
+.surenchere {
+  padding: var(--e3) var(--e4);
+  border-left: 3px solid var(--laiton);
+  background: var(--papier-creux);
+  font-size: var(--txt-sm);
+  color: var(--encre-douce);
 }
 
 .confirmation {
