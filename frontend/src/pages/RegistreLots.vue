@@ -2,13 +2,9 @@
 import { computed, onMounted, ref } from "vue";
 
 import { api, ErreurApi } from "../api/client";
+import EcheanceLot from "../components/EcheanceLot.vue";
 import type { AnnonceResume, StatutAnnonce } from "../types/api";
-import {
-  formaterDateHeure,
-  formaterMontant,
-  libelleEncheres,
-  referenceCourte,
-} from "../utils/format";
+import { formaterMontant, libelleEncheres, referenceCourte } from "../utils/format";
 
 /*
  * Page registre : la liste des lots, filtrable et triable.
@@ -183,9 +179,7 @@ onMounted(charger);
               >
                 {{ annonce.statut === "en_cours" ? "En cours" : "Terminée" }}
               </span>
-              <span class="lot__echeance donnee">
-                Clôture le {{ formaterDateHeure(annonce.dateFin) }}
-              </span>
+              <EcheanceLot :date-fin="annonce.dateFin" />
             </span>
           </RouterLink>
         </li>
@@ -349,11 +343,6 @@ onMounted(charger);
 .lot__montant {
   font-size: var(--txt-xl);
   line-height: 1;
-}
-
-.lot__echeance {
-  font-size: var(--txt-xs);
-  color: var(--encre-tenue);
 }
 
 @media (max-width: 44rem) {

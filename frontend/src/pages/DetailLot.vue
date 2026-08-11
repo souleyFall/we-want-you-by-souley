@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 
 import { api, ErreurApi } from "../api/client";
+import EcheanceLot from "../components/EcheanceLot.vue";
 import FormulaireEnchere from "../components/FormulaireEnchere.vue";
 import HistoriqueEncheres from "../components/HistoriqueEncheres.vue";
 import type { AnnonceDetail, ReponseEnchere } from "../types/api";
@@ -116,6 +117,7 @@ onMounted(charger);
           <p class="montant-fort chiffre-cle__valeur">
             {{ formaterMontant(annonce.meilleureEnchere) }}
           </p>
+          <EcheanceLot :date-fin="annonce.dateFin" />
           <p v-if="annonce.statut === 'en_cours'" class="aide petit">
             Prochaine offre à partir de {{ formaterMontant(annonce.montantMinimum) }}
           </p>
